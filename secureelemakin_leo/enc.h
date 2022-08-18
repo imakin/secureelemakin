@@ -1,15 +1,27 @@
 #ifndef FILE_ENC_H
 #define FILE_ENC_H
 
-#include "Arduino.h"
-//~ #include <AESLib.h>
-#include "button.h"
+#define DEBUG
 
-#include <Crypto.h>
-#include <AES.h>
-#include <GCM.h>
-#include <SHA256.h>
-#include <HKDF.h>
+#ifdef __linux__ 
+    #include <cstdint> //uint8_t,
+    #include <cstdlib> //malloc, free
+    #include <iostream>
+    #define logprint(x) std::cout<<x;
+#endif
+#ifdef ARDUINO
+    #include "Arduino.h"
+    #define logprint(x) Serial.print(x);
+#endif
+
+
+#include "randrange.h"
+
+#include "Crypto.h"
+#include "AES.h"
+#include "GCM.h"
+#include "SHA256.h"
+#include "HKDF.h"
 
 
 class EncClass {
@@ -33,7 +45,8 @@ class EncClass {
     static const uint8_t keysize;
     static const uint8_t ivsize;
     static const uint8_t authsize;
-    static const uint8_t block_default_item;
+    static uint8_t block_default_item();//return default item, which is
+    static bool is_block_default_item(uint8_t v);//return true if v is block default item
     static uint8_t *block;
     static uint8_t *key_iv_auth; //key, iv, and auth in one array, in order as its named key,iv,auth considering keysize,ivsize,authsize
     static uint8_t *key; //same pointer as key_iv_auth

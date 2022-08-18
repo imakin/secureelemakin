@@ -4,7 +4,6 @@ const uint8_t EncClass::blocksize = 16*3;
 const uint8_t EncClass::keysize = 16;
 const uint8_t EncClass::ivsize = 12;
 const uint8_t EncClass::authsize = 4;
-const uint8_t EncClass::block_default_item = 0;
 const uint8_t salt[5] = {209, 189, 50, 228, 251};
 #define saltsize 5
 
@@ -20,11 +19,33 @@ uint8_t *EncClass::auth = 0;
 GCM<AESTiny128> *EncClass::gcm = new GCM<AESTiny128>();
 HKDF<SHA256> *EncClass::hkdf = new HKDF<SHA256>();
 
-EncClass::EncClass(){
-    uint8_t i=0;
-    for(i=0;i<EncClass::blocksize;i++) {
-        EncClass::block[i] = EncClass::block_default_item;
+
+//0x20 to 0x7e is printable character, other than that could be block default item
+//0~25
+//return default item to fill (randomized)
+uint8_t EncClass::block_default_item() {
+    uint8_t r1 = randrange((uint8_t)0,(uint8_t)0x19);
+    uint8_t r2 = randrange((uint8_t)127,(uint8_t)254);
+    uint8_t rnarrow = randrange(0,1);
+    if (rnarrow==0) {
+        return r1;
     }
+    return r2;
+}
+//return true if v is block default item
+bool EncClass::is_block_default_item(uint8_t v) {
+    int invt = (int)v;
+    if (
+        ((invt>=0)&&(invt<=25)) ||
+        (invt>=127)
+    ) {
+        return true;
+    }
+    return false;
+}
+
+EncClass::EncClass(){
+    EncClass::clear_block();
 }
 
 /**
@@ -41,7 +62,7 @@ void EncClass::reattach_key_iv_auth(){
  * @param password: the input password
  * @param length: password given could be at any length, as long as the microcontroller could handle it
  */
-eswkqavoid EncClass::set_password(uint8_t *password, uint8_t length){
+void EncClass::set_password(uint8_t *password, uint8_t length){
     uint8_t keyivauthsize = EncClass::keysize + EncClass::ivsize + EncClass::authsize;
     free(EncClass::key_iv_auth);
     EncClass::key_iv_auth = array8(keyivauthsize);
@@ -64,7 +85,7 @@ void EncClass::clear(){
     uint8_t i=0;
     //prefil pad
     for (i=0;i<EncClass::blocksize;i++){
-        EncClass::block[i] = EncClass::block_default_item;
+        EncClass::block[i] = EncClass::block_default_item();
     }
     EncClass::hkdf->clear();
     EncClass::gcm->clear();
@@ -76,7 +97,7 @@ void EncClass::clear_block(){
     uint8_t i=0;
     //prefil pad
     for (i=0;i<EncClass::blocksize;i++){
-        EncClass::block[i] = EncClass::block_default_item;
+        EncClass::block[i] = EncClass::block_default_item();
     }
 }
 
@@ -86,6 +107,78 @@ void EncClass::clear_block(){
  * @return uint8_t: one byte tag computed from the gcm of this encrypt operation
  */
 uint8_t EncClass::encrypt_gcm(uint8_t blocksize){
+    //pre encrypt
+    #ifdef DEBUG
+    logprint("before stirred: ");
+    for (uint8_t i=0;i<blocksize;i++) {
+        logprint((int)EncClass::block[i]);
+        logprint(" ");
+    }
+    logprint("\n");
+    #endif
+    
+    //block_default_item charracter is not part of data
+    //if encrypted data is not as big as blocksize, randomly position the encrypted data somewhere in block
+    //before ENCRYPTEDDATA000
+    //after random:  ENCRYPTEDDATA000
+    //after random:  0ENCRYPTEDDAT0A0
+    //after random:  0ENCRY0PTEDDAT0A
+    //after random:  0ENCRYPTEDDATA00
+    //after random:  00ENCRYPTEDDATA0
+    //after random:  000ENCRYPTEDDATA
+    //(but 0 set into block_default_item() random )
+    //count of block_default_item in data
+    uint8_t count_non_null = 0;
+    for (uint8_t i=0;i<blocksize;i++) {
+        if (EncClass::is_block_default_item(EncClass::block[i])==false) {
+            count_non_null++;
+        }
+    }
+    
+    uint8_t posmax = blocksize-1;
+    uint8_t posmin = blocksize-1;
+    for (
+        uint8_t pos=blocksize-1;
+        pos>=1;
+        pos--
+    ){
+        if (EncClass::is_block_default_item(EncClass::block[pos])) {
+            posmin = pos;
+        }
+        else {
+            //move block[pos] to random position somewhere in block[posmin] ~ block[posmax]
+            if ((posmax-posmin) > (count_non_null/2)) {
+                posmin = posmax-(count_non_null/2);
+            }
+            uint8_t targetpos = randrange(posmin,posmax);
+            EncClass::block[targetpos] = EncClass::block[pos];
+            EncClass::block[pos] = EncClass::block_default_item();
+            pos = targetpos;
+            if (pos>=1) {
+                posmax = pos-1;
+                posmin = pos-1;
+            }
+            else {
+                break;
+            }
+        }
+    }
+    //first charracter
+    uint8_t targetpos = randrange(1,posmax);
+    if (targetpos!=0){
+        EncClass::block[targetpos] = EncClass::block[0];
+        EncClass::block[0] = EncClass::block_default_item();
+    }
+    #ifdef DEBUG
+    logprint("after stirred: ");
+    for (uint8_t i=0;i<blocksize;i++) {
+        logprint((int)EncClass::block[i]);
+        logprint(" ");
+    }
+    logprint("\n");
+    #endif
+    
+    
     EncClass::gcm->setKey(EncClass::key, EncClass::keysize);
     EncClass::gcm->setIV(EncClass::iv, EncClass::ivsize);
     EncClass::gcm->addAuthData(EncClass::auth,EncClass::authsize);
@@ -111,6 +204,24 @@ bool EncClass::decrypt_gcm(uint8_t tag, uint8_t blocksize){
     EncClass::gcm->setIV(EncClass::iv, EncClass::ivsize);
     EncClass::gcm->addAuthData(EncClass::auth,EncClass::authsize);
     EncClass::gcm->decrypt(EncClass::block, EncClass::block, blocksize);
+    uint8_t targetpos = 0;
+    bool searchingtarget = true;
+    for (uint8_t i=0;i<blocksize;i++) {
+        if (EncClass::is_block_default_item(EncClass::block[i])) {
+            EncClass::block[i] = 0;//no need to randomize block_default_item
+            if (searchingtarget) {
+                targetpos = i;
+                searchingtarget = false;
+            }
+        }
+        else {
+            //swap block[targetpos] and block[i]
+            EncClass::block[targetpos] = EncClass::block[i];
+            EncClass::block[i] = 0;//no need to randomize block_default_item
+            i = targetpos+1-1;
+            searchingtarget = true;
+        }
+    }
     return EncClass::gcm->checkTag(&tag,1);
 }
 bool EncClass::decrypt_gcm(uint8_t tag){
