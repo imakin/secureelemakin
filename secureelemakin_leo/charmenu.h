@@ -42,11 +42,11 @@ class CharMenuClass {
         void action_prev();
         void action_back();
         void action_enter();
+        void show_current();//refresh display. display current_menu text and execute the current_menu->hoveraction() if any
         Menu* root;
         
         Menu* current_menu;
     protected:
-        void show_current();//display current_menu text and execute the current_menu->hoveraction() if any
         void show_scroller();//display scroller in 2nd row of lcd
         char scroller_text[16];
 };

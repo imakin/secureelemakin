@@ -1,17 +1,23 @@
 
 #include "Keyboard.h"
 #include <LiquidCrystal.h>
-#include <AESLib.h>
 
 #include "button.h"
 
 #include "charmenu.h"
 #include "enc.h"
+#include "readstringuntil.h"
+#include "autotyper.h"
 
 #define ENABLE_TESTING //comment to disable test to save more flash/ram
 #ifdef ENABLE_TESTING
   #include "test.h"
 #endif
+
+#define array(tipe,n) (tipe *)malloc(n*sizeof(tipe))
+#define array8(n) (uint8_t *)malloc((n)*sizeof(uint8_t))
+#define echo Serial.print
+#define echoln Serial.println
 
 LiquidCrystal lcd(8,9,4,5,6,7);//lcd(rs,en,d4,d5,d6,d7)
 void lcd_print(char* text){
@@ -41,7 +47,7 @@ void setup() {
 }
 
 void loop(){
-  uint8_t bt = button_wait();
+  uint8_t bt = button_wait(1);
   if (bt==BUTTON_DOWN || bt==BUTTON_SELECT) {
     charmenu.action_enter();
   }
@@ -65,9 +71,9 @@ void led_low(){
 
 
 void charmenu_prepare(){
-  Menu* menu_aessandbox = new Menu("AES sandbox/tool", charmenu.root);
-  menu_aessandbox->hoveraction = &led_high;
-  menu_aessandbox->action = &action_aessandbox;
+  Menu* menu_autotyper = new Menu("Autotyper", charmenu.root);
+  menu_autotyper->hoveraction = &led_high;
+  autotypers_register_charmenu(menu_autotyper);
   
   
   Menu* menu_otp = new Menu("OTP 2FA         ",charmenu.root);
@@ -98,21 +104,50 @@ void action_buttonadc(){
   }
 }
 
-void action_aessandbox(){
-  Serial.setTimeout(60000);
-  Serial.println("input password and enter:");
-  String pw = Serial.readStringUntil('\n');
-  enc::setkey(pw);
-  int i=0;
-  Serial.println("key is:");
-  for(i=0;i<16;i++){
-    Serial.print(enc::key[i]);
-    Serial.print(" ");
+
+
+/**
+ * read button sequence with timeout, and call enc.set_password with the sequence
+ * @param uint8_t first_input_timeout: timeout in second to wait for the first input. typical value: 10seconds
+ * @param uint8_t between_input_timeout: timeout in second to wait for between button pressed. typical value: 2seconds
+ * @param bool debug: if true, echo password
+ * @return uint8_t: length of the sequence
+ */
+uint8_t set_password_with_button_sequence(uint8_t first_input_timeout, uint8_t between_input_timeout, bool debug){
+  if (enc.key_iv_auth!=0) {//pointer is not null, means it's been set
+    echo("password is already set");
+    return;
   }
-  Serial.print("\n");
-  Serial.println("what to encrypt?");
-  String datastring = Serial.readStringUntil('\n');
-  Serial.println("encrypting: "+datastring);
-  uint32_t length = enc::test_encrypt(datastring); //todo: only doing 16 blocks, manually encrypt the next block!
-  Serial.print("\n");
+  button_wait_release(10);
+  // get password with button presses, if no more button pressed after timeout, password input is considered done
+  uint8_t maxlength = 15;
+  uint8_t *pw = array8(maxlength);
+  uint8_t pwlength=0;
+  uint8_t timeout;
+  while (pwlength<=maxlength){
+      pwlength += 1;
+      timeout = between_input_timeout;
+      if (pwlength==1){
+        timeout = first_input_timeout;
+      }
+      uint8_t bt = button_wait(timeout);
+      if (bt==BUTTON_NONE) {
+          pwlength -= 1;
+          break;
+      }
+      echo(".");
+      pw[pwlength-1] = bt;//fill the last item of pw
+  }
+  echoln(" selesai");
+  echoln(pwlength);
+  if (debug) {
+    for (uint8_t i=0;i<pwlength;i++){
+      echo(pw[i]);
+      echo(", ");
+    }echoln();
+  }
+  enc.set_password(pw,pwlength);//enc.cpp
+  free(pw);
+  return pwlength;
 }
+

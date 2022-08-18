@@ -23,13 +23,13 @@
 uint8_t button_keyval(int analogvalue);
 /*
  * read lcd-keypad shield button (using analog0)
- * @param wait: bool (false or true), if true, busyloop until any button is pressed. if wait==false, return button even if value is BUTTON_NONE
- * @return the button value constant BUTTON_RIGHT, or BUTTON_LEFT, or BUTTON_UP, or BUTTON_DOWN, or BUTTON_SELECT, or BUTTON_NONE
+ * @param timeout_seconds: timeout for waitin until button is pressed, and waiting until button is released
+ *  for example timeout_seconds=1, if BUTTON_RIGHT is held forever, function will return BUTTON_RIGHT after timeout_seconds reached
+ * @return button pressed value (BUTTON_UP, BUTTON_DOWN, BUTTON_LEFT, BUTTON_RIGHT, BUTTON_SELECT)
+ * if timeout reached, return BUTTON_NONE
  * 
  */
-uint8_t button(bool wait);
-/*
- * like button(wait) but block until button press is released
- */
+uint8_t button_wait(uint8_t timeout_seconds);
 uint8_t button_wait();
+void button_wait_release(uint8_t timeout_seconds);
 #endif

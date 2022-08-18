@@ -72,7 +72,7 @@ void CharMenuClass::begin(){
 
 void CharMenuClass::action_enter(){
     if (this->current_menu->action!=NULL) {
-        this->current_menu->action(); //blocking is allowed
+        this->current_menu->action(); //blocking is allowed, action can use lcd or button as they like until it's done
     }
     if (this->current_menu->firstchild!=NULL){
         this->current_menu = current_menu->firstchild;

@@ -10,17 +10,22 @@
 //after incldue securedata.h
 #ifdef SECUREDATA_SAMPLE
 
-const uint8_t securedatas_size = 2;
 const PROGMEM uint8_t data_sample_0[] = {
     23, 65, 143, 230, 171, 167, 25, 212, 34, 44, 11, 190, 183, 229, 193, 69
 };
 const PROGMEM uint8_t data_sample_1[] = {
-    184, 64, 240, 173, 174, 36, 171, 14, 87, 209, 182, 119, 9, 42, 83, 127
+    184, 64, 240, 173, 174, 36, 171, 14, 87, 209, 182, 119, 9, 42, 83, 127,
+    184, 64, 240, 173, 174, 36, 141, 14, 87, 209, 182, 119, 9, 42, 83, 127
+};
+const PROGMEM uint8_t data_sample_test_enc_cpp_1[] = {
+    30, 220, 252, 69, 107, 235, 128, 61, 126, 167, 214, 166, 16, 117, 35, 78
 };
 
+const uint8_t securedatas_size = 3;
 SecureData securedatas[] = { //malloc(sizeof(SecureData) * securedatas_size);
     SecureData(data_sample_0,16,"data sample no-0"),
-    SecureData(data_sample_1,16,"data sample #1  ")
+    SecureData(data_sample_1,32,"data sample #1  "),
+    SecureData(data_sample_test_enc_cpp_1,16,"test enc.cpp    ")
 };
 
 

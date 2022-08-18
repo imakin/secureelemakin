@@ -6,8 +6,8 @@ SecureData::SecureData(uint8_t *address, uint8_t length, uint8_t *name) {
     this->length = length;
     this->name = name;
 }
-uint8_t SecureData::getDataAt(uint8_t i) {
+uint8_t SecureData::getDataAt(SecureData securedata_target, uint8_t i) {
     return (uint8_t)pgm_read_word(
-        &(this->address[i])
+        &(securedata_target.address[i])
     );
 }

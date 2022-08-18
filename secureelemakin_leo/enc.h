@@ -1,23 +1,46 @@
-#ifndef FILE_EN_H
-#define FILE_EN_H
+#ifndef FILE_ENC_H
+#define FILE_ENC_H
 
 #include "Arduino.h"
-#include <AESLib.h>
+//~ #include <AESLib.h>
 #include "button.h"
 
+#include <Crypto.h>
+#include <AES.h>
+#include <GCM.h>
+#include <SHA256.h>
+#include <HKDF.h>
 
-namespace enc {
-    extern void padkey();
-    extern void setkey(uint8_t*);
-    extern void setkey(String);
-    extern uint32_t test_encrypt(String);
+
+class EncClass {
+    public:
+    EncClass();
+
+    static void set_password(uint8_t *password, uint8_t length);
+    static void clear();
+    static void clear_block();
     
-    extern const uint8_t key_default_item;
-    extern const uint8_t block_default_item;
-    extern uint8_t key[];
-    extern uint8_t data[];
-    extern uint8_t block[];
-}
+    static uint8_t encrypt_gcm();//fullstream encrypt with GCM + AES
+    static uint8_t encrypt_gcm(uint8_t blocksize);//fullstream encrypt with GCM + AES
+    static bool decrypt_gcm(uint8_t tag);//fullstream decrypt with GCM + AES
+    static bool decrypt_gcm(uint8_t tag,uint8_t blocksize);//fullstream decrypt with GCM + AES
+    static GCM<AESTiny128> *gcm;
+    static HKDF<SHA256> *hkdf;
+    static void set_salt(uint8_t *salt,uint8_t length);
+    static void reattach_key_iv_auth();
 
+    static const uint8_t blocksize;
+    static const uint8_t keysize;
+    static const uint8_t ivsize;
+    static const uint8_t authsize;
+    static const uint8_t block_default_item;
+    static uint8_t *block;
+    static uint8_t *key_iv_auth; //key, iv, and auth in one array, in order as its named key,iv,auth considering keysize,ivsize,authsize
+    static uint8_t *key; //same pointer as key_iv_auth
+    static uint8_t *iv;  //key_iv_auth+keysize
+    static uint8_t *auth;  //key_iv_auth+keysize+ivsize
+    
+};
+extern EncClass enc;
 
 #endif

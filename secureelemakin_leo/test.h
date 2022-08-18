@@ -3,7 +3,7 @@
 #define TEST_H
 #include <Arduino.h>
 
-extern void dotest();
+void dotest();
 void assert_equal(int a, int b);
 
 #endif
