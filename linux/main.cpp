@@ -19,6 +19,8 @@
 
 #define ZERO 0
 
+#define array8(n) (uint8_t *)malloc((n)*sizeof(uint8_t))
+
 void echoln(){
     std::cout<<"\n";
 }
@@ -62,8 +64,11 @@ int main(int argc, char *argv[]){
 }
 
 void make_securedata(bool debug){
-    if (debug) std::cout<<("making securedata_makin.cpp\n");
-    enc.set_password(get_password(), get_password_length());
+    if (debug) std::cout<<("making securedata_makin.cpp. input password:\n");
+    uint8_t *pwd = array8(200);
+    uint8_t pwd_len = readStringUntil('\n',pwd,200,0);
+    enc.set_password(pwd, pwd_len);
+    free(pwd);
     if (debug) {
         std::cout<<("key_iv_auth: ");
         for (uint8_t i=0;i<(enc.keysize+enc.ivsize+enc.authsize);i++){
@@ -93,8 +98,8 @@ void make_securedata(bool debug){
     if (debug) std::cout<<("input string to be encrypted:");
     uint8_t length = readStringUntil('\n',enc.block,enc.blocksize,0);
     uint8_t blocklength = 48;
-    //~ if (length<=32) blocklength = 32;
-    //~ if (length<=16) blocklength = 16;
+    if (length<32) blocklength = 32;//if exactly 32, use 48 for better stirring security
+    if (length<16) blocklength = 16;//if exactly 16, use 32 length for better stirring security
     if (debug) std::cout<<("to optimize load, it could be 16,32, or 48. length is: ");
     if (debug) std::cout<<(int)(blocklength);
     if (debug) std::cout<<"\n";
