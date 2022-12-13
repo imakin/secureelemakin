@@ -10,6 +10,7 @@ from serialsender import kirim
 app = PySide2.QtWidgets.QApplication(sys.argv)
 
 le = PySide2.QtWidgets.QLineEdit()
+le.setEchoMode(le.Password)
 def proses():
     p = Process(target=kirim, args=(le.text().split(" "),0.4,False,))
     p.daemon = True
