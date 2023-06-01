@@ -6,7 +6,7 @@
  
 #include <iostream>
 #include <cstdint>
-
+    
 #include "Crypto.h"
 #include "AES.h"
 #include "GCM.h"
@@ -95,18 +95,26 @@ void make_securedata(bool debug){
     
     
     
-    if (debug) std::cout<<("input string to be encrypted:");
+    if (debug) std::cout<<("input string to be encrypted: ");
+    //~ enc.block[0] = enc.block_default_item();
+    //~ enc.block[1] = enc.block_default_item();
     uint8_t length = readStringUntil('\n',enc.block,enc.blocksize,0);
-    uint8_t blocklength = 48;
-    if (length<32) blocklength = 32;//if exactly 32, use 48 for better stirring security
-    if (length<16) blocklength = 16;//if exactly 16, use 32 length for better stirring security
+    uint8_t blocklength = 16;
+    while (blocklength < enc.blocksize){
+        if (length >= (blocklength-8)) { //even if length==blocklength-8, use next increased length for better stirring security
+            blocklength += 16;
+        }
+        else {
+            break;
+        }
+    }
     if (debug) std::cout<<("to optimize load, it could be 16,32, or 48. length is: ");
     if (debug) std::cout<<(int)(blocklength);
     if (debug) std::cout<<"\n";
     
     
     if (debug) {
-        std::cout<<("before encrypted:");
+        std::cout<<("before encrypted: ");
         for (uint8_t i=0;i<blocklength;i++){
             std::cout<<(int)(enc.block[i]);
             std::cout<< (", ");
@@ -115,7 +123,7 @@ void make_securedata(bool debug){
     
     uint8_t tag = enc.encrypt_gcm(blocklength);
     if (debug)  {
-        std::cout<<("after encrypted:");
+        std::cout<<("after encrypted: ");
         for (uint8_t i=0;i<blocklength;i++){
             std::cout<<(int)(enc.block[i]);
             std::cout<< (", ");
@@ -134,13 +142,19 @@ void make_securedata(bool debug){
         std::cout<< (", ");
     }
     std::cout<<"\n};\n";
+    //output code
+    if (debug) std::cout<<"for esp flash:\n\n";
+    for (uint8_t i=0;i<blocklength;i++){
+        std::cout<<(char)(enc.block[i]);
+    }
+    std::cout<<"\n\n";
     
     
     
     if (debug) std::cout<<"\n";
     if (debug) std::cout<<"\n";
     bool ok = enc.decrypt_gcm(tag+1,blocklength);
-    std::cout<<("after decrypted:");
+    std::cout<<("after decrypted: ");
     for (uint8_t i=0;i<blocklength;i++){
         std::cout<<(int)(enc.block[i]);
         std::cout<< (", ");
@@ -148,6 +162,9 @@ void make_securedata(bool debug){
     if (debug) std::cout<<("tag ok?:");
     if (debug) std::cout<<(ok);
     if (debug) std::cout<<"\n";
+    for (uint8_t i=0;i<blocklength;i++){
+        std::cout<<(char)(enc.block[i]);
+    }std::cout<<"\n";
     
 }
 
@@ -171,6 +188,7 @@ void test_randrange(){
 uint8_t readStringUntil(uint8_t terminator, uint8_t *output, uint8_t max_length, uint8_t start_index) {
     uint8_t c;
     uint8_t i=start_index;
+    uint8_t str_i = 0;
     uint8_t maximum_length = max_length;
     
     std::string str;
@@ -178,16 +196,17 @@ uint8_t readStringUntil(uint8_t terminator, uint8_t *output, uint8_t max_length,
     if ((uint8_t)str.length()<maximum_length) {
         maximum_length = (uint8_t)str.length();
     }
-    std::cout<<"maximum length is"<<(int)maximum_length;
+    std::cout<<"maximum length is "<<(int)maximum_length;
     
     for(;;){
-        c = (uint8_t)str.at(i);
+        c = (uint8_t)str.at(str_i);
         if (c==terminator) {
-            std::cout<<"muncul "<<terminator<<"\n";
+            //~ std::cout<<"muncul "<<terminator<<"\n";
             break;
         }
         output[i] = c;
         i++;
+        str_i++;
         if ((i-start_index)>=maximum_length) {//length = i-start_index;
             break;
         }
