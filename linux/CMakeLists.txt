@@ -11,11 +11,17 @@ set(SOURCE_DIR ".")
 file(GLOB SOURCE_FILES "${SOURCE_DIR}/*.cpp")
 
 # Exclude the files that will be compiled independently later
+list(FILTER SOURCE_FILES EXCLUDE REGEX "${SOURCE_DIR}/enc.cpp$")
 list(FILTER SOURCE_FILES EXCLUDE REGEX "${SOURCE_DIR}/main.cpp$")
 list(FILTER SOURCE_FILES EXCLUDE REGEX "${SOURCE_DIR}/main_api.cpp$")
 
 # Compile all the source files into object files
 add_library(AllLib OBJECT ${SOURCE_FILES})
+add_library(EncExec OBJECT ${SOURCE_DIR}/enc.cpp)
+add_library(EncPythonlib OBJECT ${SOURCE_DIR}/enc.cpp)
+# add define to use in enc.cpp (#ifdef linuxapp)
+target_compile_definitions(EncExec PRIVATE -Dlinuxapp)
+target_compile_definitions(EncPythonlib PRIVATE -Dpythonlib)
 
 # Execute the shell command to get pybind11 includes
 execute_process(
@@ -34,14 +40,12 @@ separate_arguments(PYBIND11_INCLUDES)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 
 # Create the executable
-add_executable(main_exe $<TARGET_OBJECTS:AllLib>)
+add_executable(main_exe $<TARGET_OBJECTS:AllLib> $<TARGET_OBJECTS:EncExec>)
 target_sources(main_exe PRIVATE main.cpp)
-
 # Create the shared object library
-add_library(securelemakintool SHARED $<TARGET_OBJECTS:AllLib>)
-target_sources(securelemakintool PRIVATE main_api.cpp)
-
+add_library(securelemakin SHARED $<TARGET_OBJECTS:AllLib> $<TARGET_OBJECTS:EncPythonlib>)
+target_sources(securelemakin PRIVATE main_api.cpp)
 # Add the Python include directory as an include directory for main_api
-target_include_directories(securelemakintool PRIVATE /usr/include/python3.10)
+target_include_directories(securelemakin PRIVATE /usr/include/python3.10)
 # Add the pybind11 includes as a compile definition for main_api
-target_include_directories(securelemakintool PRIVATE ${PYBIND11_INCLUDES})
+target_include_directories(securelemakin PRIVATE ${PYBIND11_INCLUDES})
