@@ -1,0 +1,3 @@
+[submodule "securelemakin-dual/esp8266-cpp/src/TOTP-Arduino"]
+	path = securelemakin-dual/esp8266-cpp/src/TOTP-Arduino
+	url = git@github.com:lucadentella/TOTP-Arduino.git
