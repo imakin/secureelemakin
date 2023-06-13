@@ -24,20 +24,18 @@ HKDF<SHA256> *EncClass::hkdf = new HKDF<SHA256>();
 //0~25
 //return default item to fill (randomized)
 uint8_t EncClass::block_default_item() {
-    uint8_t r1 = randrange(0,0x19);
-    uint8_t r2 = randrange(127,254);
-    uint8_t rnarrow = randrange(0,1);
-    if (rnarrow==0) {
-        return r1;
+    uint8_t r1 = randrange(0, 0xfe - (0x7f - 0x20)); //160 = 0xfe-(0x7e-0x20)
+    if (r1>=0x20) {
+        r1 = r1 + (0x7f - 0x20); // r1 += (0x7f-0x20) --to generate random only {0 ~ 0x19, 0x7f ~ 0xfe}
     }
-    return r2;
+    return r1;
 }
 //return true if v is block default item
 bool EncClass::is_block_default_item(uint8_t v) {
     int intv = (int)v;
     if (
-        ((intv>=0)&&(intv<=25)) ||
-        (intv>=127)
+        ((intv>=0)&&(intv<0x20)) ||
+        (intv>=0x7f)
     ) {
         return true;
     }
@@ -72,7 +70,7 @@ void EncClass::set_password(uint8_t *password, uint8_t length){
     uint8_t iteration = length;//iteration is (length), keep minimal to have stronger password
     for (uint8_t i=0;i<iteration;i++){
         EncClass::hkdf->extract(EncClass::key_iv_auth, keyivauthsize);
-        EncClass::hkdf->setKey(EncClass::key_iv_auth, keyivauthsize);
+        EncClass::hkdf->setKey(EncClass::key_iv_auth, keyivauthsize);//save hashed value to EncClass::key_iv_auth (pointer)
     }
     reattach_key_iv_auth();
 }

@@ -1,1 +1,1 @@
-../securelemakin-dual/esp8266-cpp/vendor/enc.cpp
+../securelemakin-enc/enc.cpp

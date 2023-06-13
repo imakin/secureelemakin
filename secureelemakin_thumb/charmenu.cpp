@@ -55,6 +55,7 @@ void CharMenuClass::show_scroller(){
     lcdgotoxy(0,1);
     if (current_menu->parent==NULL) {
         lcddisplay("0               ");
+        return;
     }
     sprintf(
         this->scroller_text,

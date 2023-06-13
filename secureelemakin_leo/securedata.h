@@ -2,8 +2,8 @@
 #ifndef SECUREDATA_H
 #define SECUREDATA_H
 
-#define SECUREDATA_SAMPLE //link securedata_sample.cpp instead
-//~ #define SECUREDATA_MAKIN //link securedata_makin.cpp instead
+//~ #define SECUREDATA_SAMPLE //link securedata_sample.cpp instead
+#define SECUREDATA_MAKIN //link securedata_makin.cpp instead
 
 #include <avr/pgmspace.h>
 //store encrypted data, and the length

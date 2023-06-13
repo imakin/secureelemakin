@@ -90,9 +90,9 @@ void autotyper_execute_single(SecureData current_securedata)
         }
     }
     enc.clear();
-    delay(1000);
+    delay(100);
     Keyboard.releaseAll();
-    delay(1000);
+    delay(500);
 }
 
 void autotyper_key(char key){
