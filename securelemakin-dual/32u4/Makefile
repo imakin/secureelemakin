@@ -6,7 +6,7 @@ DEVICE_PATTERN = /dev/tty.usbmodemHID*
 DEVICE := $(shell ls $(DEVICE_PATTERN) 2>/dev/null | head -n 1)
 
 ifeq ($(strip $(DEVICE)),)
-	DEVICE := /dev/ttyUSB0
+	DEVICE := /dev/ttyACM0
 endif
 
 
