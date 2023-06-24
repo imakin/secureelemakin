@@ -19,12 +19,48 @@ def led(on_or_off):
 adc = ADC(0)
 adc_threshold = 20 #when adc pin untouched, usually value is <8
 
+command_manager = None
 class CommandManager(object):
-    def keyboard(self, securedata_name):
-        
+    def __init__(self):
+        global command_manager
+        if command_manager!=None:
+            raise Exception("command_manager singleton already instantiated")
+    
+    def singleton(self):
+        global command_manager
+        if command_manager==None:
+            command_manager = CommandManager()
+        return command_manager
+    
+    def cmd_print(self,securedata_name):
+        b = data_manager.get_data(securedata_name)
+        #get pass 
+        #decrypt
+    
+    """
+    data_message examples:
+        "cmd_print securedata_name_secret"
+        "cmd_otp mygmail"
+        "cmd_password mypassword"
+    first word is method in this class
+    """
+    def process(data_message):
+        m = str(data_message)
+        try:
+            first_space = m.find(' ')]
+            cmd = m[:first_space]
+            param = m[first_space:]
+            if cmd.startswith('cmd_'):
+                getattr(self,cmd)(param)
+            else:
+                raise ValueError('malformed...')
+        except:
+            raise ValueError(f"malformed data {m}")
+
+command_manager = CommandManager()
 
 def process_command(data_message):
-    if data_message.
+    # ~ if data_message.
     
     elif data_message.startswith("print "):
         securedata_name = data_message.split(' ')[1]
