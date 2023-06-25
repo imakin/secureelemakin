@@ -3,7 +3,8 @@ import sys
 import serial
 import traceback
 import os
-ser = serial.Serial(port='/dev/ttyACM0', baudrate=115200)
+ser = None
+#serial.Serial(port='/dev/ttyACM0', baudrate=115200)
 import time
 DEBUG=True
 try:
@@ -54,12 +55,14 @@ def kirim(inputs, delay=0, debug=True):
 
 
 if __name__=="__main__":
-    inputs = sys.argv[1:]
+    device = sys.argv[1]
+    ser = serial.Serial(port=device, baudrate=115200)
+    inputs = sys.argv[2:]
     if (len(inputs)<1):
         if DEBUG:print("send all arguments through serial, valid byte number will be send as is, anything else will be send each charracter as byte ")
-        if DEBUG:print("example `python serialsender.py 254 aaaaa 10`")
+        if DEBUG:print("example `python serialsender.py /dev/tty.usbserial-* 254 aaaaa 10`")
         if DEBUG:print("         will send: [254, 97, 97, 97, 97, 97, 10]")
-        if DEBUG:print("example `python serialsender.py 254 254a`")
+        if DEBUG:print("example `python serialsender.py /dev/tty.usbserial-* 254 254a`")
         if DEBUG:print("         will send: [254, 50, 53, 52, 97, 10]")
         if DEBUG:print("and then will print the serial read result (timeout 3s)")
         if DEBUG:print("Note: no newline automatically added, add number 10 for \\n ")

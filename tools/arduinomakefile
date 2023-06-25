@@ -1,0 +1,36 @@
+#!/bin/bash
+#makin 2023
+
+# Read the parameter or use default value if omitted
+# value is from arduino-cli board listall 
+BOARDFQBN=${1:-esp8266:esp8266:d1_mini_clone}
+
+DEVICE_PORT_PATTERN=${2:-/dev/cu.usbserial-*} #for leonardo: /dev/cu.usbmodemHIDPC*
+
+TEMPLATE_CONTENT=$(cat <<END
+BOARD = $BOARDFQBN
+SKETCH = \$(notdir \$(CURDIR))
+DEVICE_PATTERN = /dev/cu.usbserial-*
+
+# Find device file matching the pattern /dev/cu.usbserial-*
+DEVICE := \$(shell ls \$(DEVICE_PATTERN) 2>/dev/null | head -n 1)
+
+ifeq (\$(strip \$(DEVICE)),)
+	DEVICE := /dev/ttyUSB0
+endif
+
+
+compile:
+	arduino-cli --verbose compile --fqbn \$(BOARD) ../\$(SKETCH)
+
+upload:
+	arduino-cli upload -p \$(DEVICE) --fqbn \$(BOARD) ../\$(SKETCH)
+
+terminal:
+	nodemcu-uploader --port \$(DEVICE) terminal
+END
+)
+
+echo "$TEMPLATE_CONTENT" > Makefile
+
+echo "Makefile created successfully!"

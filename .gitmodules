@@ -1,6 +1,6 @@
-[submodule "securelemakin-dual/esp8266-cpp/src/TOTP-Arduino"]
+[submodule "asdiuhasdiuhdiuashdiusahadsuihdisua"]
 	path = library/TOTP-Arduino
 	url = git@github.com:lucadentella/TOTP-Arduino.git
-[submodule "securelemakin-dual/esp8266-cpp/src/NTPClient"]
+[submodule "hasdhuahdsuhasduhwuijfnsakjnjkxwoij"]
 	path = library/NTPClient
 	url = git@github.com:arduino-libraries/NTPClient.git

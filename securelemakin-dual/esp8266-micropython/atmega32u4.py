@@ -37,6 +37,10 @@ class CommandManager(object):
         #get pass 
         #decrypt
     
+    def cmd_password(self,password):
+        with open(f"{data_manager.DATA_DIR}/password", "w") as f:
+            f.write('password')
+    
     """
     data_message examples:
         "cmd_print securedata_name_secret"
@@ -44,28 +48,29 @@ class CommandManager(object):
         "cmd_password mypassword"
     first word is method in this class
     """
-    def process(data_message):
-        m = str(data_message)
+    def process(self,data_message):
+        if type(data_message) in [bytes,bytearray]:
+            m = data_message.decode('utf8')
+        elif type(data_message)==str:
+            m = data_message
+        else:
+            raise ValueError("parameter data_message must be str,bytes,or bytearray")
         try:
-            first_space = m.find(' ')]
+            first_space = m.find(' ')
             cmd = m[:first_space]
-            param = m[first_space:]
+            param = m[first_space+1:]
+            print(cmd)
+            print(param)
             if cmd.startswith('cmd_'):
                 getattr(self,cmd)(param)
             else:
                 raise ValueError('malformed...')
-        except:
-            raise ValueError(f"malformed data {m}")
+        except Exception as e:
+            raise e
+            # ~ print(e)
+            # ~ raise ValueError(f"malformed data {m}")
 
 command_manager = CommandManager()
-
-def process_command(data_message):
-    # ~ if data_message.
-    
-    elif data_message.startswith("print "):
-        securedata_name = data_message.split(' ')[1]
-        buff = data_manager.get_data(securedata_name)
-    
 
 def routine():
     html = """<label>securedataid: <input id="securedataid" placeholder="securedataid" /></label>
@@ -91,7 +96,8 @@ def routine():
                 if (l>0):
                     data = i2c.readfrom(address, l)
                     if len(data)>0:
-                        print(f"received {type(data)} {data}")
+                        print(f"received {type(data)}: {data}")
+                        command_manager.process(data)
                         message = "ok bos"
                         i2c.writeto(address,message.encode('utf8'))
         except OSError:

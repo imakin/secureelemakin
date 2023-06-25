@@ -4,10 +4,13 @@
 //@author: makin
 //@date: 2023
 #include <ESP8266WiFi.h>
+#include "src/NTPClient/NTPClient.h"
+#include <WiFiUdp.h>
 #include "LittleFS.h"
 #include "securedataflash.h"
 #include "src/util_arraymalloc.h"
 #include "src/securelemakin-enc/enc.h"
+#include "src/TOTP-Arduino/src/TOTP.h"
 #include "secret.h"
 Secret secret;
 int filesize = 0;
@@ -18,21 +21,27 @@ IPAddress staticIP(192,168,1,2);
 IPAddress gateway(192,168,1,1);
 IPAddress subnet(255,255,255,0);
 
+WiFiUDP udp;
+//~ NTPClient timeClient(udp, (7*60*60)+(0*60) ); //UTC+7:00
+NTPClient timeClient(udp, (int)0 ); //turn out otp timer is based on UTC?
+
+SecureDataFlash* firstitem;
+
 void setupWifi(){
-    WiFi.config(staticIP, gateway, subnet);
+    //~ WiFi.config(staticIP, gateway, subnet);
     WiFi.begin(secret.wifissid, secret.wifipassword);
     while (WiFi.status() != WL_CONNECTED)
     {
         delay(500);
         Serial.print(".");
     }
+    timeClient.begin();
 }
 
 void setup(){
     delay(4000);
     Serial.begin(115200);
     setupWifi();
-    server.begin();
     
     if (!LittleFS.begin()) {
         Serial.println("Failed to mount file system");
@@ -49,7 +58,7 @@ void setup(){
     //scan securedata
     char* temp = array(char,32);//max 32 bytes
     SecureDataFlash* item = new SecureDataFlash();
-    SecureDataFlash* itemnext = new SecureDataFlash();
+    firstitem = item;
     int name_len = 0;
     int chiper_pos;
     int chiper_len;
@@ -73,44 +82,69 @@ void setup(){
         }
         item->pos = chiper_pos;
         item->length = chiper_len;
-        item->next = itemnext;
-        itemnext->prev = item;
-        item = itemnext;
-        itemnext = new SecureDataFlash();
+        item->next = new SecureDataFlash();
+        item->next->prev = item;
+        item = item->next;
     }
     securefile.close();
     free(temp);
     //delete last item
-    item->next = 0;
-    delete itemnext;
-    while (item->prev != 0){
-        item = item->prev;
-    }
+    item->prev->next = 0;
+    SecureDataFlash* nullitem = item;
+    item = firstitem;
+    delete nullitem;
+    
     enc.set_password(secret.encryption_password,11);
-    while (item!=0){
-        Serial.print(item->name);
-        Serial.print(":");
-        item->read(enc.block);
-        enc.decrypt_gcm(0,(uint8_t)item->length);
-        for (int i=0;i<item->length;i++){
-            Serial.write((char)enc.block[i]);
-        }
-        Serial.println();
-        item = item->next;
-        delay(500);
+
+    SecureDataFlash* otptko = secureitem_find("otp_tko");
+    otptko->read(enc.block);
+    enc.decrypt_gcm(0,(uint8_t)otptko->length);
+    int readable_len = 0;
+    for (int i=0;i<otptko->length;i++){
+        Serial.write((char)enc.block[i]);
+        if (enc.block[i]!=0) readable_len+=1;
     }
-    printWifiStatus();
+    Serial.print("\nreadable_len");
+    Serial.println(readable_len);
+    TOTP* totptko = new TOTP(enc.block,readable_len);
+    
+    
+    //~ printWifiStatus();
+    //~ while (!timeClient.forceUpdate()) {Serial.println("updating..");delay(1000);};
+    while (1){
+        delay(1000);
+        timeClient.update();
+        unsigned long timestamp = timeClient.getEpochTime();
+        Serial.println(timestamp,10);
+        Serial.println(totptko->getCode(timestamp));
+        
+    }
+    server.begin();
 
 }
 
 bool parse(char* buffer, const char* comparison){
-    int len = sizeof(comparison);
+    int len = strlen(comparison);
     for (int i=0;i<len;i++){
         if (buffer[i]!=comparison[i]){
             return false;
         }
     }
     return true;
+}
+
+SecureDataFlash* secureitem_find(const char* name){
+    SecureDataFlash* item = firstitem;
+    while (item!=0){
+        if (parse(item->name,name)){
+            Serial.print(item->name);
+            Serial.print("<--- selected");
+            return item;
+        }
+        item = item->next;
+        delay(10);
+    }
+    return 0;
 }
 
 void loop(){

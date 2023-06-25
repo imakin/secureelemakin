@@ -16,4 +16,3 @@ int SecureDataFlash::read(uint8_t* target_buffer){
     securefile.close();
     return len;
 }
-
