@@ -4,6 +4,7 @@ import hmac
 
 import ntptime
 import time
+import gc
 
 class OTP(object):
     """
@@ -73,7 +74,7 @@ class OTP(object):
         )[-padding:]#maxlength is padding
     
 # micropython use epochh since jan 2000, but TOTP compatible with google authenticator use unix epoch since 1970
-ntptime.settime()
+
 # esp8266 precompiled firmware settime() doesnt accept parameter,so 
 # time.localtime() is always at UTC, adjust manually is possible but 
 # google authenticator use UTC too
@@ -81,13 +82,19 @@ ntptime.settime()
 def epoch_2000_to_1970(s):
     return s+946_684_800
     
-aku = OTP('OTPSECRETCODE')
-def now():
+
+def now(secretcode):
+    aku = OTP(secretcode)
     ntptime.settime()
-    return aku.generate_otp(
+    hasil =  aku.generate_otp(
         int(
             epoch_2000_to_1970(time.mktime(time.localtime()))
             //30 #TOTP timestep
         )
     )
+    aku = None
+    gc.collect()
+    return hasil
+    
 # ~ print(aku.generate_otp(int(time.mktime(datetime.datetime.now().timetuple())/30)))
+

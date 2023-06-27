@@ -1,9 +1,20 @@
 import os
-from machine import *
+from machine import (
+    Pin,
+    unique_id,
+    I2C,
+    UART,
+    # ~ ADC,
+)
 import time
 import socket
 import gc
 
+gc.collect()
+print(gc.mem_free())
+import totp
+gc.collect()
+print(gc.mem_free())
 import enc
 import secret
 import data_manager
@@ -29,8 +40,8 @@ class keyboard(object):
         keyboard.keyboard_echo_pin.value(0)
     
 
-adc = ADC(0)
-adc_threshold = 20 #when adc pin untouched, usually value is <8
+# ~ adc = ADC(0)
+# ~ adc_threshold = 20 #when adc pin untouched, usually value is <8
 
 
 
@@ -121,6 +132,16 @@ class CommandManager(object):
 
     def cmd_password(self,password):
         self.password.set(password)
+    
+    def cmd_otp(self,securedata_name):
+        b = bytearray(data_manager.get_data(securedata_name))
+        s = enc.bytearray_strip(
+            enc.decrypt(b,self.password.get())
+        )
+        pin = totp.now(s)
+        keyboard.on()
+        self.ctx.i2c.writeto(self.ctx.address,pin.encode('utf8'))
+        keyboard.off()#32u4 only check pin on the begining of i2c data, so it's safe to off() while 32u4 is still receiving
 
     """
     data_message examples:
@@ -153,11 +174,13 @@ class CommandManager(object):
 
 class Routine(object):
     def __init__(self):
-        html = """<label>securedataid: <input id="securedataid" placeholder="securedataid" /></label>
+        html = """to request use GET method example: curl [esp ip address]/[command]/[parameter]
         """
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.bind(['',80])
         self.server.listen()
+        self.server.settimeout(0.5)
+        self.server_last_connection = time.time()
         
         self.uart = UART(0,baudrate=115200,timeout=500)
 
@@ -204,22 +227,38 @@ class Routine(object):
             
             
             #ADC & web server routine
-            if adc.read()>adc_threshold:
-                print("adc touched, web server mode")
-                led("toggle")
-                self.server.settimeout(1)
-                while adc.read()>adc_threshold:
+            # ~ if adc.read()>adc_threshold:
+                # ~ print("adc touched, web server mode")
+                # ~ led("toggle")
+                # ~ self.server.settimeout(1)
+                # ~ while adc.read()>adc_threshold:
+            led("toggle")
+            havent_tried = True
+            while havent_tried or (time.time()-self.server_last_connection)<1:
+                havent_tried = False
+                try:
+                    conn, requesteraddr = self.server.accept()
+                except:
                     led("toggle")
-                    try:
-                        conn, requesteraddr = self.server.accept()
-                    except:
-                        continue
-                    request_message = str(conn.recv(1024))
-                    conn.send("HTTP/1.1 200 OK\r\n")
-                    conn.send("Content-Type: text/html\r\n")
-                    conn.send("Connection: close\r\n\r\n")
-                    conn.sendall(html)
-                    conn.close()
+                    continue
+                self.server_last_connection = time.time()
+                led("toggle")
+                request_message = conn.recv(1024).decode('utf8')
+                lines = request_message.split('\r\n') #to get the first line
+                GET_path = lines[0].split(' ')[1] #to get the 2nd word from the first line
+                commands = GET_path.split('/')
+                command = " ".join([word for word in commands if len(word)>0])
+                try:
+                    self.command_manager.process(command)
+                except Exception as e:
+                    print(f"wrong command:\n\t{GET_path}\n\t{command}")
+                    print(e)
+                
+                conn.send("HTTP/1.1 200 OK\r\n")
+                conn.send("Content-Type: text/html\r\n")
+                conn.send("Connection: close\r\n\r\n")
+                conn.sendall(html)
+                conn.close()
                 
 try:
     Routine()

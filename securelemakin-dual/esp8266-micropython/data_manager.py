@@ -23,4 +23,5 @@ def get_data(name="")->bytes:
         except OSError:
             print(f"file not found {name}")
         finally:
-            f.close()
+            try:f.close()
+            except:pass
