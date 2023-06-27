@@ -119,7 +119,7 @@ unpad message,
 """
 def unpad(message):
     if type(message)!=bytearray:
-        raise ValueError("message must be bytes or bytearray")
+        raise ValueError("message must be bytearray")
 
     for p in range(len(message)):
         if is_empty_block(message[p]):
@@ -139,6 +139,18 @@ def unpad(message):
     return message
 
 """
+return string from bytearray and strip its null suffix
+"""
+def bytearray_strip(message: bytearray)->str:
+    r = len(message)-1
+    while message[r]==0: r=r-1
+    return message[:r+1].decode('utf8')
+    
+
+
+
+
+"""
 password hashing/KDF
 implement as you like
 """
@@ -150,16 +162,25 @@ def hashpassword(password,prime=secret.Hash.prime, salt=secret.Hash.salt):
         h.update(password)
     return h.digest()
 
+"""
+@param message: str or byte or bytearray
+@param password: str
+"""
 def encrypt(message,password):
     key = hashpassword(password)
     iv = hashpassword(password,secret.Hash.prime2,secret.Hash.salt2)
-    enc = cryptolib.aes(key,2,iv[:16])
+    encaes = cryptolib.aes(key,2,iv[:16])
     message_padded = pad(message)
-    enc.encrypt(message_padded,message_padded)
-    enc,key,iv = None,None,None
+    encaes.encrypt(message_padded,message_padded)
+    encaes,key,iv = None,None,None
     gc()
     return message_padded
 
+"""
+@param message: bytearray
+@param password: str
+@return bytearray
+"""
 def decrypt(bytechiper,password):
     key = hashpassword(password)
     iv = hashpassword(password,secret.Hash.prime2,secret.Hash.salt2)

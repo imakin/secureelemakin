@@ -4,6 +4,7 @@ import time
 import socket
 
 import enc
+import secret
 import data_manager
 
 ledpin = Pin(2,Pin.OUT)
@@ -16,6 +17,17 @@ def led(on_or_off):
     elif type(on_or_off)==str and on_or_off=="toggle":
         ledpin.value(1^ledpin.value())
 
+
+class keyboard(object):
+    keyboard_echo_pin = Pin(15,Pin.OUT)
+    @staticmethod
+    def on():
+        keyboard.keyboard_echo_pin.value(1)
+    @staticmethod
+    def off():
+        keyboard.keyboard_echo_pin.value(0)
+    
+
 adc = ADC(0)
 adc_threshold = 20 #when adc pin untouched, usually value is <8
 
@@ -25,6 +37,10 @@ class CommandManager(object):
         global command_manager
         if command_manager!=None:
             raise Exception("command_manager singleton already instantiated")
+        self.password = secret.Password(enc)
+    
+    def set_context(self,ctx):
+        self.ctx = ctx
     
     def singleton(self):
         global command_manager
@@ -33,14 +49,16 @@ class CommandManager(object):
         return command_manager
     
     def cmd_print(self,securedata_name):
-        b = data_manager.get_data(securedata_name)
-        #get pass 
-        #decrypt
-    
+        b = bytearray(data_manager.get_data(securedata_name))
+        s = enc.bytearray_strip(
+            enc.decrypt(b,self.password.get())
+        )
+        keyboard.on()
+        self.ctx.i2c.writeto(self.ctx.address,s.encode('utf8'))
+
     def cmd_password(self,password):
-        with open(f"{data_manager.DATA_DIR}/password", "w") as f:
-            f.write('password')
-    
+        self.password.set(password)
+
     """
     data_message examples:
         "cmd_print securedata_name_secret"
@@ -70,73 +88,78 @@ class CommandManager(object):
             # ~ print(e)
             # ~ raise ValueError(f"malformed data {m}")
 
-command_manager = CommandManager()
+class Routine(object):
+    def __init__(self):
+        html = """<label>securedataid: <input id="securedataid" placeholder="securedataid" /></label>
+        """
+        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server.bind(['',80])
+        self.server.listen()
+        
+        self.uart = UART(0,baudrate=115200,timeout=500)
 
-def routine():
-    html = """<label>securedataid: <input id="securedataid" placeholder="securedataid" /></label>
-    """
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind(['',80])
-    s.listen()
-    
-    uart = UART(0,baudrate=115200,timeout=500)
-
-    address = 1 #atmega32u4 address
-    i2c = I2C(sda=Pin(4),scl=Pin(5))
-    sampling = 0
-    
-    led(1)
-    while True:
-        #i2c routine
-        try:
-            expecting_length_b = i2c.readfrom(address, 1)
-            if len(expecting_length_b):
-                l = int(expecting_length_b[0])
-                print(f"got data from 32u4 {l}")
-                if (l>0):
-                    data = i2c.readfrom(address, l)
-                    if len(data)>0:
-                        print(f"received {type(data)}: {data}")
-                        command_manager.process(data)
-                        message = "ok bos"
-                        i2c.writeto(address,message.encode('utf8'))
-        except OSError:
-            sampling += 1
-            if sampling>=10:
-                print("no data")
-                sampling = 0
+        self.address = 1 #atmega32u4 self.address
+        self.i2c = I2C(sda=Pin(4),scl=Pin(5))
+        sampling = 0
+        
+        self.command_manager = CommandManager()
+        self.command_manager.set_context(self)
+        
+        keyboard.off()
+        led(1)
+        while True:
+            #self.i2c routine
+            try:
+                expecting_length_b = self.i2c.readfrom(self.address, 1)
+                if len(expecting_length_b):
+                    l = int(expecting_length_b[0])
+                    print(f"got data from 32u4 {l}")
+                    if (l>0):
+                        data = self.i2c.readfrom(self.address, l)
+                        if len(data)>0:
+                            print(f"received {type(data)}: {data}")
+                            try:
+                                self.command_manager.process(data)
+                            except Exception as e:
+                                print("wrong command")
+                                print(e)
+            except OSError:
+                sampling += 1
+                if sampling>=10:
+                    print("no data")
+                    sampling = 0
+                
             
-        
-        #UART routine
-        serialdata = uart.read()
-        if serialdata:
-            print("atmega32u4 routine exit because uart is coming")
-            print(serialdata)
-            with open("lastdata.bin","wb") as f:
-                f.write(bytearray(serialdata))
-            break
-        
-        
-        #ADC & web server routine
-        if adc.read()>adc_threshold:
-            print("adc touched, web server mode")
-            led("toggle")
-            s.settimeout(1)
-            while adc.read()>adc_threshold:
+            #UART routine
+            serialdata = self.uart.read()
+            if serialdata:
+                print("atmega32u4 routine exit because self.uart is coming")
+                print(serialdata)
+                with open("lastdata.bin","wb") as f:
+                    f.write(bytearray(serialdata))
+                break
+            
+            
+            #ADC & web server routine
+            if adc.read()>adc_threshold:
+                print("adc touched, web server mode")
                 led("toggle")
-                try:
-                    conn, requesteraddr = s.accept()
-                except:
-                    continue
-                request_message = str(conn.recv(1024))
-                conn.send("HTTP/1.1 200 OK\r\n")
-                conn.send("Content-Type: text/html\r\n")
-                conn.send("Connection: close\r\n\r\n")
-                conn.sendall(html)
-                conn.close()
-            
+                self.server.settimeout(1)
+                while adc.read()>adc_threshold:
+                    led("toggle")
+                    try:
+                        conn, requesteraddr = self.server.accept()
+                    except:
+                        continue
+                    request_message = str(conn.recv(1024))
+                    conn.send("HTTP/1.1 200 OK\r\n")
+                    conn.send("Content-Type: text/html\r\n")
+                    conn.send("Connection: close\r\n\r\n")
+                    conn.sendall(html)
+                    conn.close()
+                
 try:
-    routine()
+    Routine()
 except KeyboardInterrupt: #so that pyboard --no-soft-reset can do file upload
     led(0)
     print("atmega32u4 routine exits because of keyboard interrupt")
