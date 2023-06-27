@@ -165,6 +165,7 @@ def hashpassword(password,prime=secret.Hash.prime, salt=secret.Hash.salt):
 """
 @param message: str or byte or bytearray
 @param password: str
+@return bytearray
 """
 def encrypt(message,password):
     key = hashpassword(password)

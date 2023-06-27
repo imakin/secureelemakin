@@ -159,9 +159,14 @@ void wireOnRequest(){
 }
 
 void wireOnReceive(int received_length){
+    bool keyboardmode = false;
+    if (digitalRead(keyboard_echo_flag_pin)==HIGH) {
+        //check one and keep the flag even if pin is changing mid i2c data transfer
+        keyboardmode = true;
+    }
     while (Wire.available()) {
         char c = Wire.read();
-        if (digitalRead(keyboard_echo_flag_pin)==HIGH) {
+        if (keyboardmode) {
             if (is_printable(c)){
                 Keyboard.print(c);
             }

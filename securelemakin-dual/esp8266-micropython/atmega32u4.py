@@ -2,6 +2,7 @@ import os
 from machine import *
 import time
 import socket
+import gc
 
 import enc
 import secret
@@ -31,13 +32,65 @@ class keyboard(object):
 adc = ADC(0)
 adc_threshold = 20 #when adc pin untouched, usually value is <8
 
+
+
+class Password(object):
+    uid = unique_id() #machine.unique_id
+    uid_hex = "".join([ ("0"+hex(c)[2:])[-2:] for c in uid])
+    password_file = 'master_secret.bin'#contains password, but this password is also encrypted with master_key
+    exist = False
+    password_passkey = None
+    cipher = None
+
+
+    def __init__(self,enc_context, prime, salt):
+        self.enc = enc_context
+        uid_hash = self.enc.hashpassword(
+            self.uid_hex
+            ,prime=prime
+            ,salt=salt
+        )
+        self.password_passkey = "".join([chr(32+(c%(128-32))) for c in uid_hash])
+        self.exist = False
+
+    def get(self):
+        if self.exist:
+            temp = bytearray(self.cipher)
+            return self.enc.bytearray_strip(self.enc.decrypt(temp,self.password_passkey))
+        else:
+            try:
+                f = open(self.password_file,'rb')
+                self.cipher = bytearray(f.read())
+                self.exist = True
+                temp = bytearray(self.cipher)
+                return self.enc.bytearray_strip(self.enc.decrypt(temp,self.password_passkey))
+            except:
+                self.exist = False
+                raise Exception('password not set')
+            finally:
+                try:f.close()
+                except:pass
+
+
+    def set(self,password):
+        b = self.enc.encrypt(password,self.password_passkey)
+        with open(self.password_file,'wb') as f:
+            f.write(b)
+            self.cipher = bytearray(b)
+            gc.collect()
+            
+
+
+
+
+
 command_manager = None
 class CommandManager(object):
     def __init__(self):
         global command_manager
         if command_manager!=None:
             raise Exception("command_manager singleton already instantiated")
-        self.password = secret.Password(enc)
+        self.password = Password(enc, secret.Password.prime, secret.Password.salt)
     
     def set_context(self,ctx):
         self.ctx = ctx
@@ -55,6 +108,16 @@ class CommandManager(object):
         )
         keyboard.on()
         self.ctx.i2c.writeto(self.ctx.address,s.encode('utf8'))
+        keyboard.off()#32u4 only check pin on the begining of i2c data, so it's safe to off() while 32u4 is still receiving
+
+    """
+    do keyboard print for chr(char_byte)
+    usefull for one key charracter or keyboard like 32 (space) 10 (linefeed) 9(tab)
+    """
+    def cmd_print_char(self,char_byte):
+        keyboard.on()
+        self.ctx.i2c.writeto(self.ctx.address,bytes([char_byte]))
+        keyboard.off()#32u4 only check pin on the begining of i2c data, so it's safe to off() while 32u4 is still receiving
 
     def cmd_password(self,password):
         self.password.set(password)
