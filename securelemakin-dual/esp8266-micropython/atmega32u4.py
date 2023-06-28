@@ -127,7 +127,7 @@ class CommandManager(object):
     """
     def cmd_print_char(self,char_byte):
         keyboard.on()
-        self.ctx.i2c.writeto(self.ctx.address,bytes([char_byte]))
+        self.ctx.i2c.writeto(self.ctx.address,bytes([int(char_byte)]))
         keyboard.off()#32u4 only check pin on the begining of i2c data, so it's safe to off() while 32u4 is still receiving
 
     def cmd_password(self,password):
@@ -142,6 +142,12 @@ class CommandManager(object):
         keyboard.on()
         self.ctx.i2c.writeto(self.ctx.address,pin.encode('utf8'))
         keyboard.off()#32u4 only check pin on the begining of i2c data, so it's safe to off() while 32u4 is still receiving
+
+    def cmd_list(self,nothing):
+        files = ";".join(os.listdir('/data'))
+        print(f"sending to 32u4: {files}")
+        self.ctx.html = files
+        
 
     """
     data_message examples:
@@ -174,8 +180,8 @@ class CommandManager(object):
 
 class Routine(object):
     def __init__(self):
-        html = """to request use GET method example: curl [esp ip address]/[command]/[parameter]
-        """
+        self.html_help = """request example: curl [esp ip address]/[command]/[parameter]"""
+        self.html = ""
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.bind(['',80])
         self.server.listen()
@@ -236,6 +242,7 @@ class Routine(object):
             havent_tried = True
             while havent_tried or (time.time()-self.server_last_connection)<1:
                 havent_tried = False
+                self.html = ""
                 try:
                     conn, requesteraddr = self.server.accept()
                 except:
@@ -257,7 +264,10 @@ class Routine(object):
                 conn.send("HTTP/1.1 200 OK\r\n")
                 conn.send("Content-Type: text/html\r\n")
                 conn.send("Connection: close\r\n\r\n")
-                conn.sendall(html)
+                if self.html!="":
+                    conn.sendall(self.html) #command_manager can update self.html
+                else:
+                    conn.sendall(self.html_help)
                 conn.close()
                 
 try:

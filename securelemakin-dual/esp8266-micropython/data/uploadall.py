@@ -15,7 +15,7 @@ except subprocess.CalledProcessError as e:
 	device = '/dev/tty.usbserial*'
 password = None
 for f in files:
-	if f.endswith('.py'):
+	if f.endswith('.py') or f.endswith('.dontupload'):
 		continue
 	if f.endswith('.raw'):
 		print(f'encrypting {f}')

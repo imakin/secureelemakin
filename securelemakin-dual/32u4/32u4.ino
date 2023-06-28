@@ -3,7 +3,8 @@
 #include "src/util_arraymalloc.h"
 
 
-String textS0 = "";
+String text = "";
+bool text_set = false;
 
 bool is_serial_capturingpassword = false;
 
@@ -54,8 +55,8 @@ class WireSend{
                 return false;
             }
             Wire.write(data[pos]);
-            Serial.print(" s:");
-            Serial.print(data[pos]);
+            //~ Serial.print(" s:");
+            //~ Serial.print(data[pos]);
             pos += 1;
             return send_available();
         }
@@ -91,14 +92,15 @@ void loop() {
             commandlen = 0;
         }
         else {
-            // Any number 0~255 is okay, except 254, it somehow could hang the 32u4 i2c
-            // and the problem persist after hard reset / power reset.
-            // can only be fixed after arduino bootloader's upload
-            if (chr!=254) {
-                command[commandlen] = chr;
-                commandlen += 1;
-            }
+            command[commandlen] = chr;
+            commandlen += 1;
         }
+    }
+    
+    if (text_set){
+        Serial.println(text);
+        text = "";
+        text_set = false;
     }
 }
 
@@ -164,6 +166,8 @@ void wireOnReceive(int received_length){
         //check one and keep the flag even if pin is changing mid i2c data transfer
         keyboardmode = true;
     }
+    text = "";
+    bool text_set = false;
     while (Wire.available()) {
         char c = Wire.read();
         if (keyboardmode) {
@@ -176,12 +180,12 @@ void wireOnReceive(int received_length){
         }
         else {
             //flag pin is not high, echo back to USB-Host
-            if (is_printable(c)){
-                Serial.write(c);
-            }
+            text += c;
+            text_set = true;
         }
     }
-    Serial.println("wireOnReceiv done");
+    Serial.print("received: ");
+    Serial.println(received_length);
 }
 
 
